@@ -1,0 +1,46 @@
+-E$ABCDEFGHhello;                      # <token1>
+52$xyxxyxyxy;                          # <token1>
+12A$ABCDEFGHhello;                     # <token1>
+!00011111111111111111111111111111111;  # <token2>
++++***++++++***+++***aC@ABCD@ab@xy@yz; # <token3>
+81A$xyxxyxyxyxyx;                      # <token1>
+&18:06:59;                             # <token2>
++++************+++***aC@ABCDabcdefgH@ab@xy@yz; # <token3>
+++++++++++++++++++***aC@ABCD@ab@xy@yz; # <token3>
+
+%%
+
+INIT 150 fuel - 10 altitude;           # F:150 A:10
+
+SET [ type_A : 110, type_B :20] -> passengers;
+
+SET [ suitcases : 1200, fuel: 2000 ] -> weight;
+
+
+IF passengers.type_A       # passengers.type_A equals 110
+  IS > 100 THEN [          # true
+    fuel -= 3;             # print F:147 A:10
+    weight.fuel -= 300;    # print weight.fuel = 1700
+    altitude += 100;       # print F:147 A:110
+  ]
+  IS > 200 THEN [          # false
+	weight.fuel -= 200;
+	fuel -= 2;
+  ]
+  IS ELSE THEN [           # false
+    fuel -= 1;
+  ]
+DONE;
+
+SET [height: 2000] -> mountain;
+
+IF mountain.height         # mountain.height equals 2000
+  IS > 3000 THEN [         # false
+    fuel -= 10; weight.fuel -= 1000; altitude += 4000;
+  ]
+  IS ELSE THEN [           # true
+    fuel -= 5;             # print F:142 A:110
+    weight.fuel -= 500;    # print weight.fuel = 1200
+    altitude += 1000;      # print F:142 A:1110
+  ]
+DONE;

@@ -1,0 +1,319 @@
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+	symbol_table = new HashMap<String, HashMap<String, Integer>>();
+	//System.out.println("OUTPUT:");
+
+
+	//note sort arraylist
+	//Collections.sort(list);  grande -> piccolo
+    //Collections.reverse(list);  piccolo -> grande
+:};
+
+action code {:  // accessible in the semantic rules
+    public void debug(String message)
+    {
+		if(true){
+			print(message);
+		}
+    }
+
+
+	public void print(String message)
+    {
+		System.out.println(message);
+    }
+
+
+	public void printStack(parser p, Integer maxCount){
+		if(true){
+			maxCount = 0-maxCount;
+			System.out.println("STAR PRINT STACK for "+ maxCount + " positions");
+			for(int i=0; i > maxCount; i--){
+				System.out.println(i+ " "+ p.stack(i));
+			}
+			System.out.println("END PRINT STACK for "+ maxCount + " positions");
+		}
+	}
+:}
+
+parser code {: // in the parser class (accessible by parser.(var/method))
+
+	public HashMap<String, HashMap<String, Integer>> symbol_table;
+
+    public void report_error(String message, Object info) {
+        StringBuffer m = new StringBuffer(message);
+        if (info instanceof Symbol) {
+            if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+                if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+                    int line = (((Symbol)info).left) + 1;
+                    int column = (((Symbol)info).right) + 1;
+                    m.append(" (line " + line + " column " + column + ")");
+                }
+            }
+            System.err.println(m);
+        }
+    }
+
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos + position)).value);
+    }
+:};
+
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+terminal C, S, MINUS, POINT, ARROW, STAR, PLUS, DIVIDE, COL, EQ, PIPE, SEP, MINOR, MAJOR ;
+terminal RO, RC, SO, SC, CO, CC;
+terminal A, F, INIT, IF, IS, THEN, ELSE, DONE, SET;
+terminal TOKEN1, TOKEN2, TOKEN3;
+terminal Integer INTEGER;
+terminal Float FLOAT;
+terminal Double DOUBLE;
+terminal String QSTRING, ID;
+
+
+non terminal header, t12l, t1l, tl;
+non terminal flight;
+non terminal HashMap initInst;
+non terminal commands, att;
+non terminal HashMap att_list, command, set, act;
+non terminal list_of_actions;
+non terminal String var_name;
+non terminal Boolean comp;
+non terminal if_inst, is_list_else, name;
+non terminal Boolean is_list;
+non terminal program;
+
+non terminal HashMap NT0, NT6;
+non terminal Boolean NT5;
+non terminal HashMap NT2, NT7;
+non terminal Integer NT1, NT3;
+
+
+///////////////////////////////////*************************
+///// DEBUG PURPOSE
+//// comment this part when not debunging
+
+terminal DEBUG;
+non terminal debug_list;
+
+//start with program;
+//program ::= debug_list ;
+//debug_list ::= debug_list DEBUG | ;
+
+///////////////////////////////////***************************
+
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+
+start with program;
+
+
+program ::= header SEP flight;
+
+
+//////////////////////////////////
+////// HEADER SECTION
+/////////////////////////////////
+
+
+header ::= t12l TOKEN3 S t12l | t12l TOKEN3 S t12l TOKEN3 S t12l TOKEN3 S t12l;
+
+t12l ::= t12l tl | ;
+
+tl ::= TOKEN1 S | TOKEN2 S ;
+
+
+//////////////////////////////////
+////// FLIGHT SECTION
+/////////////////////////////////
+
+flight ::= initInst commands {:   :};
+
+initInst ::= INIT INTEGER:f F MINUS INTEGER:a A S {: RESULT = new HashMap<String,Integer>(); RESULT.put("fuel",f); RESULT.put("altitude",a); :}|
+			 INIT INTEGER:a A MINUS INTEGER:f F S {: RESULT = new HashMap<String,Integer>(); RESULT.put("fuel",f); RESULT.put("altitude",a); :}|
+			 INIT MINUS S {: RESULT = new HashMap<String,Integer>(); RESULT.put("fuel",50); RESULT.put("altitude",0); :}|
+			 INIT MINUS INTEGER:f F S {: RESULT = new HashMap<String,Integer>(); RESULT.put("fuel",f); :} |
+			 INIT MINUS INTEGER:a A S  {: RESULT = new HashMap<String,Integer>(); RESULT.put("altitude",a); :}|
+			 INIT INTEGER:f F MINUS S {: RESULT = new HashMap<String,Integer>(); RESULT.put("fuel",f); :}|
+			 INIT INTEGER:a A MINUS S  {: RESULT = new HashMap<String,Integer>(); RESULT.put("altitude",a); :} ;
+
+commands ::= commands NT7 command command | command command command command command ;
+
+//value of fuel and altitude
+NT7 ::= {: RESULT = (HashMap)parser.stack(-1); :} ;
+
+//set
+command ::= SET SO att_list:list SC ARROW ID:key S {:
+			parser.symbol_table.put(key, list);
+			RESULT = (HashMap)parser.stack(-7);
+	   :};
+
+att_list ::=  att_list:l C var_name:k COL INTEGER:v {:
+				l.put(k,v);
+				RESULT = l;
+			:}
+			  |
+			  var_name:k COL INTEGER:v {:
+				RESULT = new HashMap<String, Integer>();
+				RESULT.put(k, v);
+			  :};
+
+var_name ::= ID:s {: RESULT = s; :}| A {: RESULT = "altitude"; :} | F {: RESULT = "fuel"; :} ;
+
+//if_instruction
+command ::= IF var_name POINT var_name NT1 is_list_else {:
+				RESULT = (HashMap)parser.stack(-8);
+        :} ;
+
+//Value of the if
+NT1 ::= {:
+			String s = (String)parser.stack(-2);
+			String t = (String)parser.stack(0);
+			Integer val = (Integer)parser.symbol_table.get(s).get(t);
+			RESULT = val;
+		:};
+
+//value of fuel and altitude
+NT0 ::= {:
+			RESULT = (HashMap)parser.stack(-9);
+		:};
+
+//value of fuel and altitude for else
+NT6 ::= {:
+			RESULT = (HashMap)parser.stack(-10);
+		:};
+
+// get the value of if
+NT3 ::= {:
+		RESULT = (Integer)parser.stack(-1);
+        :};
+
+// get the value of condition for else statement
+NT5 ::= {:  RESULT = (Boolean)parser.stack(-2); :};
+
+
+is_list_else ::= is_list:b IS ELSE NT5 THEN NT6 SO list_of_actions SC DONE S ;
+
+//is list has the value true or false to trigger or not the else actions
+is_list ::= is_list:b IS comp:c THEN NT0 SO list_of_actions SC {:
+				if(!b){
+					RESULT = false;
+				}else if(c){
+					RESULT = false;
+				}
+				else{
+					RESULT = true;
+				}
+			:} |
+			 IS NT3 comp:c THEN NT0 SO list_of_actions:l SC {:
+				RESULT = !c;
+			:} ;
+
+//comp has the value true or false to trigger or not the if actions
+comp ::= MINOR INTEGER:i {:
+		 Integer if_val = (Integer)parser.stack(-4);
+		 if(if_val < i){
+			 RESULT = true;
+		 }
+		 else{
+			 RESULT= false;
+		 }
+
+		:} |
+		MAJOR INTEGER:i {:
+		 Integer if_val = (Integer)parser.stack(-4);
+		 if(if_val > i){
+			 RESULT = true;
+		 }
+		 else{
+			 RESULT= false;
+		 }
+
+		:} |
+		EQ EQ INTEGER:i {:
+		 Integer if_val = (Integer)parser.stack(-5);
+		 if(if_val.equals(i)){
+			 RESULT = true;
+		 }
+		 else{
+			 RESULT= false;
+		 }
+
+		:};
+
+NT2 ::= {: RESULT = (HashMap)parser.stack(-1); :};
+
+list_of_actions ::= list_of_actions:l act:a
+					| NT2 act:a;
+
+act ::= var_name:name MINUS EQ INTEGER:i S {:   //management of 'fuel' or 'altitude'
+
+			Boolean condition = (Boolean)parser.stack(-9);
+			HashMap hash = (HashMap)parser.stack(-7);
+			if(condition){
+				Integer value = (Integer)hash.get(name);
+				value -= i;
+
+				//Update
+				hash.put(name,value);
+
+				System.out.println("F:"+hash.get("fuel")+" "+"A:"+hash.get("altitude"));
+			}
+			RESULT = hash;
+		:}
+		| var_name:name PLUS EQ INTEGER:i S {:   //management of 'fuel' or 'altitude'
+
+			Boolean condition = (Boolean)parser.stack(-9);
+			HashMap hash = (HashMap)parser.stack(-7);
+			if(condition){
+				Integer value = (Integer)hash.get(name);
+				value += i;
+
+				//Update
+				hash.put(name,value);
+
+				System.out.println("F:"+hash.get("fuel")+" "+"A:"+hash.get("altitude"));
+			}
+			RESULT = hash;
+
+		:}
+		| var_name:s POINT var_name:t MINUS EQ INTEGER:i S {:   //management of symbol_table
+
+			Boolean condition = (Boolean)parser.stack(-11);
+			if(condition){
+				Integer val = parser.symbol_table.get(s).get(t);
+				val -= i;
+
+				//Update symbol table
+				HashMap updateHash = new HashMap<String, Integer>();
+				updateHash.put(t,val);
+				parser.symbol_table.put(s,updateHash);
+
+				System.out.println(s+"."+t+" = "+val );
+			}
+		:}
+		| var_name:s POINT var_name:t PLUS EQ INTEGER:i S {:    //management of symbol_table
+			Boolean condition = (Boolean)parser.stack(-11);
+			if(condition){
+				Integer val = parser.symbol_table.get(s).get(t);
+				val += i;
+
+				//Update symbol table
+				HashMap updateHash = new HashMap<String, Integer>();
+				updateHash.put(t,val);
+				parser.symbol_table.put(s,updateHash);
+
+				System.out.println(s+"."+t+" = "+val );
+			}
+		:};
+
